@@ -18,7 +18,7 @@ module.exports =  {
               [
                 "@babel/plugin-transform-react-jsx",
                 {
-                  pragma: "ToyReact.createElement"
+                  pragma: "wgwCreateElement"
                 }
               ]
             ]
