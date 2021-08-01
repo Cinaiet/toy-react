@@ -5,17 +5,16 @@ class MyComponent extends Component{
   constructor() {
     super()
     this.state = {
-      a: '1'
+      a: 1
     }
   }
   render() {
     return (
       <div>
+        <button onclick={() => {this.state.a++; this.rerender()}}>add a ++</button>
         <div>
-          <div> my component</div>
-          <span>{this.state.a}</span>
+        {this.state.a.toString()}
         </div>
-          {this.children}
       </div>
     )
   }

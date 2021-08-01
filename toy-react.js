@@ -6,7 +6,11 @@ class elementWrapper {
   }
 
   setAttribute(name, value) {
-    this.root.setAttribute(name, value)
+    if(name.match(/^on([\s\S]+)/)) {
+      this.root.addEventListener(RegExp.$1.replace(/^[/s/S]/, val => val.toLowerCase()), value)
+    } else {
+      this.root.setAttribute(name, value)
+    }
   }
 
   appendChild(component) {
@@ -39,6 +43,7 @@ export class Component {
     this.props = Object.create(null) // 创建一个纯净的空对象
     this.children = []
     this._root = null
+    this._range = null
   }
 
   setAttribute(name, value) {
@@ -51,21 +56,15 @@ export class Component {
 
   [REDDER_TO_DOM](range) { // 私有函数
     // Range 接口表示一个包含节点与文本节点的一部分的文档片段。可将文本插入到指定位置
-
+    this._range = range
     this.render()[REDDER_TO_DOM](range)
   }
 
   rerender() {
-    range.deleteContents()
+    this._range.deleteContents()
     this[REDDER_TO_DOM](this._range)
   }
 
-  get root() {
-    if(!this._root) {
-      this._root = this.render().root // 如果render出来的是一个comp那么就会发生递归直到变成一个eleWrapper
-    }
-    return this._root
-  }
 }
 
 export function wgwCreateElement(type, attributes, ...childrens) {
