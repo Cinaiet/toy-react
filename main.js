@@ -11,7 +11,7 @@ class MyComponent extends Component{
   render() {
     return (
       <div>
-        <button onclick={() => {this.state.a++; this.rerender()}}>add a ++</button>
+        <button onclick={() => {this.setState({a: this.state.a + 1})} }>add a ++</button>
         <div>
         {this.state.a.toString()}
         </div>

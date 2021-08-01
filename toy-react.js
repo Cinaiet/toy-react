@@ -65,6 +65,28 @@ export class Component {
     this[REDDER_TO_DOM](this._range)
   }
 
+  setState(newState) {
+    if(this.state === null || typeof this.state !== 'object') {
+      // 不是一个对象时
+      this.state = newState
+      this.rerender()
+      return 
+    }
+    let merge = (oldState, newState) => {
+      for(let item in newState) {
+        if(oldState[item] === null || typeof oldState[item] !== 'object') {
+          oldState[item] = newState[item]
+        } else {
+          merge(oldState[item], newState[item])
+        }
+      }
+      
+    }
+
+    merge(this.state, newState)
+    this.rerender()
+  }
+
 }
 
 export function wgwCreateElement(type, attributes, ...childrens) {
