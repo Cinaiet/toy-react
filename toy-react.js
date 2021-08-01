@@ -1,3 +1,5 @@
+
+const REDDER_TO_DOM = Symbol('render to dom')
 class elementWrapper {
   constructor(type) {
     this.root = document.createElement(type)
@@ -8,7 +10,16 @@ class elementWrapper {
   }
 
   appendChild(component) {
-    this.root.appendChild(component.root)
+    let range = document.createRange()
+      range.setStart(this.root, this.root.childNodes.length)
+      range.setEnd(this.root, this.root.childNodes.length)
+      range.deleteContents()
+      component[REDDER_TO_DOM](range)
+  }
+
+  [REDDER_TO_DOM](range) { 
+    range.deleteContents()
+    range.insertNode(this.root)
   }
   
 }
@@ -16,6 +27,10 @@ class elementWrapper {
 class TextWrapper {
   constructor(content) {
     this.root = document.createTextNode(content)
+  }
+  [REDDER_TO_DOM](range) { // 私有函数
+    range.deleteContents()
+    range.insertNode(this.root)
   }
 }
 
@@ -32,6 +47,17 @@ export class Component {
 
   appendChild(component) {
     this.children.push(component)
+  }
+
+  [REDDER_TO_DOM](range) { // 私有函数
+    // Range 接口表示一个包含节点与文本节点的一部分的文档片段。可将文本插入到指定位置
+
+    this.render()[REDDER_TO_DOM](range)
+  }
+
+  rerender() {
+    range.deleteContents()
+    this[REDDER_TO_DOM](this._range)
   }
 
   get root() {
@@ -54,13 +80,6 @@ export function wgwCreateElement(type, attributes, ...childrens) {
     ele.setAttribute(attr, attributes[attr])
   }
 
-  // for(let child of childrens) {
-  //   if(typeof child === 'string') {
-  //     child = new TextWrapper(child)
-  //   }
-  //   ele.appendChild(child)
-  // }
-
   let insertChild = (childrens) => {
     for(let child of childrens) {
       if(typeof child === 'string') {
@@ -81,5 +100,9 @@ export function wgwCreateElement(type, attributes, ...childrens) {
 
 
 export function render(component, parentEle) {
-  parentEle.appendChild(component.root)
+  let range = document.createRange()
+  range.setStart(parentEle, 0)
+  range.setEnd(parentEle, parentEle.childNodes.length)
+  range.deleteContents()
+  component[REDDER_TO_DOM](range)
 }

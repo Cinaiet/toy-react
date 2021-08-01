@@ -2,10 +2,19 @@ import { Component, render, wgwCreateElement } from './toy-react'
 
 
 class MyComponent extends Component{
+  constructor() {
+    super()
+    this.state = {
+      a: '1'
+    }
+  }
   render() {
     return (
       <div>
-        <div>my component</div>
+        <div>
+          <div> my component</div>
+          <span>{this.state.a}</span>
+        </div>
           {this.children}
       </div>
     )
