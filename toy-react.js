@@ -21,34 +21,108 @@ export class Component {
   get vdom() {
     return this.render().vdom
   }
-
-  get vchildren() {
-    return this.children.map(child => this.child.vdom)
-  }
-
   [REDDER_TO_DOM](range) { // 私有函数
     // Range 接口表示一个包含节点与文本节点的一部分的文档片段。可将文本插入到指定位置
     this._range = range
-    this.render()[REDDER_TO_DOM](range)
+    this.tempVdom = this.vdom
+
+    this.tempVdom[REDDER_TO_DOM](range)
   }
 
-  rerender() {
-    let oldRange = this._range
+  update() {
+    // 只对比对应位置的vdom是不是同一类型的节点
+    // 更高层级的修改，如两个dom的顺序调换，在真是的react中会采用更好的vdom算法，
+    // 此处只是为了讲解vdom的原理，不做深层次的展开
+
+
+    /***
+     * isSameNode
+     * 比较根节点是否一致，返回bool
+     * 
+     *  
+     * */ 
+    let isSameNode = (oldNode, newNode) => {
+      // 类型不同
+      if(oldNode.type !== newNode.type ) return false
+      
+      // props 不同
+      for(let name in newNode.props) {
+        if(newNode.props[name] !== oldNode.props[name]) return false
+      }
+
+      // 旧dom比新dom props多的话
+      if(Object.keys(oldNode.props).length !== Object.keys(oldNode.props).length) return false
+
+      // 文本节点
+      if(newNode.type === '#text') {
+        if(newNode.content !== oldNode.content) return false
+      }
+      return true
+    }
+    /*
+     * diff type
+     * diff props
+     * diff children （真实的react中，children的对比有很多种不同的diff算法，此处也不再展开,使用最土的同位置比较方法）
+     * 类型为 #text 时需要对比content是否发生了更改
+     */
+    let updater = (oldNode, newNode) => {
+      
+      if(!isSameNode(oldNode, newNode)) {
+        // 新节点替换掉旧节点
+        newNode[REDDER_TO_DOM](oldNode._range)
+        return 
+      }
+      newNode._range = oldNode._range
+
+      // children中有可能放的是compoent,所以需要一个虚拟的children
+      let newChildren = newNode.vchildren
+      let oldChildren = oldNode.vchildren
+
+      if(!newChildren || !newChildren.length) return
+
+      let tailRange = oldNode.vchildren[oldNode.vchildren.length - 1]._range
+
+      for(let i = 0; i < newChildren.length; i++) {
+        let newChild = newChildren[i]
+        let oldChild = oldChildren[i]
+        // newChildren.len > oldChildren.leng时
+        if(i < oldChildren.length) {
+          updater(oldChild, newChild)
+        } else {
+          let range = document.createRange()
+          range.setStart(tailRange.endContainer, tailRange.endOffset)
+          range.setEnd(tailRange.endContainer, tailRange.endOffset)
+          newChild[REDDER_TO_DOM](range)
+          tailRange = range
+          // todo
+        }
+      }
+    }
+
+    let vdom = this.vdom
+    updater(this.tempVdom, vdom)
+
+    this.tempVdom = vdom // 至此默认为已经完成了dom的update,替换掉旧的vdom
+
+  }
+
+  // rerender() {
+  //   let oldRange = this._range
     
-    let range = document.createRange()
-    range.setStart(oldRange.startContainer, oldRange.startOffset)
-    range.setEnd(oldRange.startContainer, oldRange.startOffset)
-    this[REDDER_TO_DOM](range)
+  //   let range = document.createRange()
+  //   range.setStart(oldRange.startContainer, oldRange.startOffset)
+  //   range.setEnd(oldRange.startContainer, oldRange.startOffset)
+  //   this[REDDER_TO_DOM](range)
 
-    oldRange.setStart(range.endContainer, range.endOffset)
-    oldRange.deleteContents()
-  }
+  //   oldRange.setStart(range.endContainer, range.endOffset)
+  //   oldRange.deleteContents()
+  // }
 
   setState(newState) {
     if(this.state === null || typeof this.state !== 'object') {
       // 不是一个对象时
       this.state = newState
-      this.rerender()
+      this.update()
       return 
     }
     let merge = (oldState, newState) => {
@@ -63,38 +137,17 @@ export class Component {
     }
 
     merge(this.state, newState)
-    this.rerender()
+    this.update()
   }
 }
 class elementWrapper extends Component{
   constructor(type) {
     super(type)
     this.type = type
-    // this.root = document.createElement(type)
   }
 
-  // setAttribute(name, value) {
-  //   if(name.match(/^on([\s\S]+)/)) {
-  //     this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, val => val.toLowerCase()), value)
-  //   } else {
-  //     if(name === 'className') {
-  //       this.root.setAttribute('class', value)
-  //     } else {
-  //       this.root.setAttribute(name, value)
-  //     }
-  //   }
-  // }
-
-  // appendChild(component) {
-  //   let range = document.createRange()
-  //     range.setStart(this.root, this.root.childNodes.length)
-  //     range.setEnd(this.root, this.root.childNodes.length)
-  //     range.deleteContents()
-  //     component[REDDER_TO_DOM](range)
-  // }
-
   [REDDER_TO_DOM](range) {
-    range.deleteContents()
+    this._range = range
 
     let root = document.createElement(this.type) // 创建root
 
@@ -113,8 +166,10 @@ class elementWrapper extends Component{
       }
     }
 
+    !this.vchildren && (this.vchildren = this.children.map(child => child.vdom))
+
     // 插入 this.children
-    for(let child of this.children) {
+    for(let child of this.vchildren) {
       let childRange = document.createRange()
       childRange.setStart(root, root.childNodes.length)
       childRange.setEnd(root, root.childNodes.length)
@@ -122,17 +177,16 @@ class elementWrapper extends Component{
       child[REDDER_TO_DOM](childRange)
     }
 
-    range.insertNode(root)
+    replaceContent(range, root)
   }
 
   get vdom() {
+
+    // 保证每个vdom树中取出来的children都有vchildren属性
+    this.vchildren = this.children.map(child => child.vdom)
+
     // 如果对象上没有方法，不能够完成重绘
     return this
-    // {
-    //   type: this.type,
-    //   props: this.props,
-    //   children: this.children.map(item => item.vdom)
-    // }
   }
   
 }
@@ -142,7 +196,7 @@ class TextWrapper extends Component{
     super(content)
     this.type = "#text"
     this.content = content
-    this.root = document.createTextNode(content)
+    this._range = null
   }
 
   get vdom() {
@@ -153,9 +207,20 @@ class TextWrapper extends Component{
     } */
   }
   [REDDER_TO_DOM](range) { // 私有函数
-    range.deleteContents()
-    range.insertNode(this.root)
+    this._range = range
+    let root = document.createTextNode(this.content)
+    replaceContent(range, root)
   }
+}
+
+function replaceContent(range, node) {
+  range.insertNode(node)
+  range.setStartAfter(node)
+  range.deleteContents()
+
+  range.setStartBefore(node)
+  range.setEndAfter(node)
+
 }
 
 

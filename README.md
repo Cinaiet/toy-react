@@ -89,6 +89,95 @@ get vdom() {
 ```
 ### vdom比对
 
+因为dom要更新，所以会使用到renderToDom函数。
+及想要实现vdom的比对，需要在render之前进行。
+
+#### 核心
+- 只对比对应位置的vdom是不是同一类型的节点
+- 更高层级的修改，如两个dom的顺序调换，在真是的react中会采用更好的vdom算法，
+- 此处只是为了讲解vdom的原理，不做深层次的展开
 
 
+```
+update() {
+    // 只对比对应位置的vdom是不是同一类型的节点
+    // 更高层级的修改，如两个dom的顺序调换，在真是的react中会采用更好的vdom算法，
+    // 此处只是为了讲解vdom的原理，不做深层次的展开
 
+
+    /***
+     * isSameNode
+     * 比较根节点是否一致，返回bool
+     * 
+     *  
+     * */ 
+    let isSameNode = (oldNode, newNode) => {
+      // 类型不同
+      if(oldNode.type !== newNode.type ) return false
+      
+      // props 不同
+      for(let name in newNode.props) {
+        if(newNode.props[name] !== oldNode.props[name]) return false
+      }
+
+      // 旧dom比新dom props多的话
+      if(Object.keys(oldNode.props).length !== Object.keys(oldNode.props).length) return false
+
+      // 文本节点
+      if(newNode.type === '#text') {
+        if(newNode.content !== oldNode.content) return false
+      }
+      return true
+    }
+    /*
+     * diff type
+     * diff props
+     * diff children （真实的react中，children的对比有很多种不同的diff算法，此处也不再展开,使用最土的同位置比较方法）
+     * 类型为 #text 时需要对比content是否发生了更改
+     */
+    let updater = (oldNode, newNode) => {
+      
+      if(!isSameNode(oldNode, newNode)) {
+        // 新节点替换掉旧节点
+        newNode[REDDER_TO_DOM](oldNode._range)
+        return 
+      }
+      newNode._range = oldNode._range
+
+      // children中有可能放的是compoent,所以需要一个虚拟的children
+      let newChildren = newNode.vchildren
+      let oldChildren = oldNode.vchildren
+
+      if(!newChildren || !newChildren.length) return
+
+      let tailRange = oldNode.vchildren[oldNode.vchildren.length - 1]._range
+
+      for(let i = 0; i < newChildren.length; i++) {
+        let newChild = newChildren[i]
+        let oldChild = oldChildren[i]
+        // newChildren.len > oldChildren.leng时
+        if(i < oldChildren.length) {
+          updater(oldChild, newChild)
+        } else {
+          let range = document.createRange()
+          range.setStart(tailRange.endContainer, tailRange.endOffset)
+          range.setEnd(tailRange.endContainer, tailRange.endOffset)
+          newChild[REDDER_TO_DOM](range)
+          tailRange = range
+          // todo
+        }
+      }
+    }
+
+    let vdom = this.vdom
+    updater(this.tempVdom, vdom)
+
+    this.tempVdom = vdom // 至此默认为已经完成了dom的update,替换掉旧的vdom
+
+  }
+```
+
+
+在真实的react中，事件是由一个事件管理中心的方式去处理的，对DOM的依赖更小，能做到更精准的去更新位置。
+
+以上。写的有点着急了，后续有时间了再扩展完善。
