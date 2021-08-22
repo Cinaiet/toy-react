@@ -22,6 +22,10 @@ export class Component {
     return this.render().vdom
   }
 
+  get vchildren() {
+    return this.children.map(child => this.child.vdom)
+  }
+
   [REDDER_TO_DOM](range) { // 私有函数
     // Range 接口表示一个包含节点与文本节点的一部分的文档片段。可将文本插入到指定位置
     this._range = range
@@ -66,7 +70,7 @@ class elementWrapper extends Component{
   constructor(type) {
     super(type)
     this.type = type
-    this.root = document.createElement(type)
+    // this.root = document.createElement(type)
   }
 
   // setAttribute(name, value) {
@@ -89,17 +93,46 @@ class elementWrapper extends Component{
   //     component[REDDER_TO_DOM](range)
   // }
 
-  [REDDER_TO_DOM](range) { 
+  [REDDER_TO_DOM](range) {
     range.deleteContents()
-    range.insertNode(this.root)
+
+    let root = document.createElement(this.type) // 创建root
+
+    // 插入this.props
+    for(let name in this.props) {
+      let value = this.props[name]
+
+      if(name.match(/^on([\s\S]+)/)) {
+        root.addEventListener(RegExp.$1.replace(/^[\s\S]/, val => val.toLowerCase()), value)
+      } else {
+        if(name === 'className') {
+          root.setAttribute('class', value)
+        } else {
+          root.setAttribute(name, value)
+        }
+      }
+    }
+
+    // 插入 this.children
+    for(let child of this.children) {
+      let childRange = document.createRange()
+      childRange.setStart(root, root.childNodes.length)
+      childRange.setEnd(root, root.childNodes.length)
+      childRange.deleteContents()
+      child[REDDER_TO_DOM](childRange)
+    }
+
+    range.insertNode(root)
   }
 
   get vdom() {
-    return {
-      type: this.type,
-      props: this.props,
-      children: this.children.map(item => item.vdom)
-    }
+    // 如果对象上没有方法，不能够完成重绘
+    return this
+    // {
+    //   type: this.type,
+    //   props: this.props,
+    //   children: this.children.map(item => item.vdom)
+    // }
   }
   
 }
@@ -107,15 +140,17 @@ class elementWrapper extends Component{
 class TextWrapper extends Component{
   constructor(content) {
     super(content)
+    this.type = "#text"
     this.content = content
     this.root = document.createTextNode(content)
   }
 
   get vdom() {
-    return {
+    return this
+    /* {
       type: '#text',
       content: this.content
-    }
+    } */
   }
   [REDDER_TO_DOM](range) { // 私有函数
     range.deleteContents()
