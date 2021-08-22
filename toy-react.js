@@ -7,9 +7,13 @@ class elementWrapper {
 
   setAttribute(name, value) {
     if(name.match(/^on([\s\S]+)/)) {
-      this.root.addEventListener(RegExp.$1.replace(/^[/s/S]/, val => val.toLowerCase()), value)
+      this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, val => val.toLowerCase()), value)
     } else {
-      this.root.setAttribute(name, value)
+      if(name === 'className') {
+        this.root.setAttribute('class', value)
+      } else {
+        this.root.setAttribute(name, value)
+      }
     }
   }
 
@@ -61,8 +65,15 @@ export class Component {
   }
 
   rerender() {
-    this._range.deleteContents()
-    this[REDDER_TO_DOM](this._range)
+    let oldRange = this._range
+    
+    let range = document.createRange()
+    range.setStart(oldRange.startContainer, oldRange.startOffset)
+    range.setEnd(oldRange.startContainer, oldRange.startOffset)
+    this[REDDER_TO_DOM](range)
+
+    oldRange.setStart(range.endContainer, range.endOffset)
+    oldRange.deleteContents()
   }
 
   setState(newState) {
@@ -103,6 +114,7 @@ export function wgwCreateElement(type, attributes, ...childrens) {
 
   let insertChild = (childrens) => {
     for(let child of childrens) {
+      if(child === null) continue
       if(typeof child === 'string') {
         child = new TextWrapper(child)
       }
