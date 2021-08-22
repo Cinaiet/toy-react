@@ -1,46 +1,6 @@
 
 const REDDER_TO_DOM = Symbol('render to dom')
-class elementWrapper {
-  constructor(type) {
-    this.root = document.createElement(type)
-  }
 
-  setAttribute(name, value) {
-    if(name.match(/^on([\s\S]+)/)) {
-      this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, val => val.toLowerCase()), value)
-    } else {
-      if(name === 'className') {
-        this.root.setAttribute('class', value)
-      } else {
-        this.root.setAttribute(name, value)
-      }
-    }
-  }
-
-  appendChild(component) {
-    let range = document.createRange()
-      range.setStart(this.root, this.root.childNodes.length)
-      range.setEnd(this.root, this.root.childNodes.length)
-      range.deleteContents()
-      component[REDDER_TO_DOM](range)
-  }
-
-  [REDDER_TO_DOM](range) { 
-    range.deleteContents()
-    range.insertNode(this.root)
-  }
-  
-}
-
-class TextWrapper {
-  constructor(content) {
-    this.root = document.createTextNode(content)
-  }
-  [REDDER_TO_DOM](range) { // 私有函数
-    range.deleteContents()
-    range.insertNode(this.root)
-  }
-}
 
 export class Component {
   constructor() {
@@ -56,6 +16,10 @@ export class Component {
 
   appendChild(component) {
     this.children.push(component)
+  }
+
+  get vdom() {
+    return this.render().vdom
   }
 
   [REDDER_TO_DOM](range) { // 私有函数
@@ -97,8 +61,69 @@ export class Component {
     merge(this.state, newState)
     this.rerender()
   }
-
 }
+class elementWrapper extends Component{
+  constructor(type) {
+    super(type)
+    this.type = type
+    this.root = document.createElement(type)
+  }
+
+  // setAttribute(name, value) {
+  //   if(name.match(/^on([\s\S]+)/)) {
+  //     this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, val => val.toLowerCase()), value)
+  //   } else {
+  //     if(name === 'className') {
+  //       this.root.setAttribute('class', value)
+  //     } else {
+  //       this.root.setAttribute(name, value)
+  //     }
+  //   }
+  // }
+
+  // appendChild(component) {
+  //   let range = document.createRange()
+  //     range.setStart(this.root, this.root.childNodes.length)
+  //     range.setEnd(this.root, this.root.childNodes.length)
+  //     range.deleteContents()
+  //     component[REDDER_TO_DOM](range)
+  // }
+
+  [REDDER_TO_DOM](range) { 
+    range.deleteContents()
+    range.insertNode(this.root)
+  }
+
+  get vdom() {
+    return {
+      type: this.type,
+      props: this.props,
+      children: this.children.map(item => item.vdom)
+    }
+  }
+  
+}
+
+class TextWrapper extends Component{
+  constructor(content) {
+    super(content)
+    this.content = content
+    this.root = document.createTextNode(content)
+  }
+
+  get vdom() {
+    return {
+      type: '#text',
+      content: this.content
+    }
+  }
+  [REDDER_TO_DOM](range) { // 私有函数
+    range.deleteContents()
+    range.insertNode(this.root)
+  }
+}
+
+
 
 export function wgwCreateElement(type, attributes, ...childrens) {
   let ele;
